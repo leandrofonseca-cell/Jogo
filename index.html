@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>War verse</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="scanlines" aria-hidden="true"></div>
+
+  <main class="app-shell">
+    <section id="screen-start" class="screen is-active hero-screen">
+      <div class="hero-copy">
+        <h1>War verse</h1>
+      </div>
+
+      <div class="mode-panel">
+        <button class="primary-button" data-mode="cpu">Jogar contra CPU</button>
+        <button class="primary-button ghost" data-mode="local">Multiplayer local</button>
+      </div>
+    </section>
+
+    <section id="screen-decks" class="screen">
+      <header class="screen-header">
+        <div>
+          <p class="eyebrow">Etapa 1</p>
+          <h2>Escolha o deck</h2>
+        </div>
+        <button class="icon-button" id="back-to-start" title="Voltar">X</button>
+      </header>
+
+      <div id="turn-instruction" class="notice">Jogador 1, escolha sua faccao.</div>
+      <div id="deck-grid" class="deck-grid"></div>
+    </section>
+
+    <section id="screen-battle" class="screen">
+      <header class="battle-top">
+        <div>
+          <p class="eyebrow" id="battle-mode">Modo CPU</p>
+          <h2 id="round-title">Rodada 1 de 3</h2>
+        </div>
+        <div class="scoreboard">
+          <span>J1 <strong id="score-p1">0</strong></span>
+          <span>J2 <strong id="score-p2">0</strong></span>
+        </div>
+      </header>
+
+      <div id="privacy-gate" class="privacy-gate" hidden>
+        <h3 id="privacy-title">Passe para o Jogador 1</h3>
+        <p>O adversario nao deve ver sua escolha.</p>
+        <button class="primary-button" id="reveal-picker">Escolher carta</button>
+      </div>
+
+      <section class="picker-area">
+        <div class="panel-title">
+          <p id="picker-label">Escolha sua carta</p>
+          <span id="deck-label">Deck</span>
+        </div>
+        <div id="player-hand" class="cards-grid"></div>
+      </section>
+
+      <section class="arena">
+        <div class="fighter-zone">
+          <h3>Jogador 1</h3>
+          <div id="fighter-p1" class="fighter-slot empty">Aguardando carta</div>
+        </div>
+        <div class="versus-core">
+          <span>VS</span>
+          <div id="damage-float" class="damage-float"></div>
+        </div>
+        <div class="fighter-zone">
+          <h3 id="opponent-title">CPU</h3>
+          <div id="fighter-p2" class="fighter-slot empty">Aguardando carta</div>
+        </div>
+      </section>
+
+      <section class="actions-panel">
+        <p id="battle-message">Selecione uma carta para comecar a rodada.</p>
+        <div class="attribute-actions">
+          <button data-attribute="ataque">Poder</button>
+          <button data-attribute="defesa">Inteligencia</button>
+          <button data-attribute="velocidade">Carisma</button>
+          <button data-attribute="especial" class="special-action">Especial</button>
+        </div>
+        <div class="round-buttons">
+          <button id="next-round" disabled>Proxima rodada</button>
+          <button id="restart-match">Reiniciar</button>
+        </div>
+      </section>
+    </section>
+
+    <section id="screen-final" class="screen final-screen">
+      <p class="eyebrow">Resultado final</p>
+      <h2 id="final-title">Vitoria</h2>
+      <p id="final-message"></p>
+      <div id="round-history" class="round-history"></div>
+      <button class="primary-button" id="play-again">Jogar novamente</button>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
