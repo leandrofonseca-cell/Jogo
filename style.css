@@ -89,7 +89,7 @@ button {
   background:
     linear-gradient(180deg, rgba(8, 0, 3, 0.08), rgba(8, 0, 3, 0.34)),
     radial-gradient(circle at center, rgba(255, 38, 38, 0.04), rgba(0, 0, 0, 0.18)),
-    url("images/war-verse-bg.jpeg") center / cover no-repeat;
+    url("/images/war-verse-bg.jpeg") center / cover no-repeat;
 }
 
 .hero-screen::after {
