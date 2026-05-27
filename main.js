@@ -94,7 +94,7 @@ function bindEvents() {
 
 async function loadCards() {
   try {
-    const response = await fetch("./cards.json");
+    const response = await fetch("/cards.json");
     state.cards = await response.json();
   } catch (error) {
     console.error("Nao foi possivel carregar cards.json. Rode com npm start.", error);
