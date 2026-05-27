@@ -2,10 +2,10 @@
   "name": "war-verse",
   "version": "1.0.0",
   "description": "Jogo de cartas cyberpunk em HTML, CSS e JavaScript puro.",
-  "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
   },
   "devDependencies": {
     "vite": "^8.0.14"
