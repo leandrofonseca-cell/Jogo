@@ -30,8 +30,10 @@
         <button class="icon-button" id="back-to-start" title="Voltar">X</button>
       </header>
 
-      <div id="turn-instruction" class="notice">Jogador 1, escolha sua faccao.</div>
-      <div id="deck-grid" class="deck-grid"></div>
+      <div class="deck-selection-stage">
+        <div id="turn-instruction" class="notice deck-turn-notice">Jogador 1, escolha sua faccao.</div>
+        <div id="deck-grid" class="deck-grid"></div>
+      </div>
     </section>
 
     <section id="screen-battle" class="screen">
@@ -41,10 +43,12 @@
           <h2 id="round-title">Rodada 1 de 3</h2>
         </div>
         <div class="scoreboard">
-          <span>J1 <strong id="score-p1">0</strong></span>
-          <span>J2 <strong id="score-p2">0</strong></span>
+          <span><b id="score-label-p1">J1</b> <strong id="score-p1">0</strong></span>
+          <span><b id="score-label-p2">J2</b> <strong id="score-p2">0</strong></span>
         </div>
       </header>
+
+      <div id="tie-break-notice" class="notice tie-break-notice" aria-live="assertive"></div>
 
       <div id="privacy-gate" class="privacy-gate" hidden>
         <h3 id="privacy-title">Passe para o Jogador 1</h3>
@@ -62,12 +66,21 @@
 
       <section class="arena">
         <div class="fighter-zone">
-          <h3>Jogador 1</h3>
+          <h3 id="fighter-title-p1">Jogador 1</h3>
           <div id="fighter-p1" class="fighter-slot empty">Aguardando carta</div>
         </div>
         <div class="versus-core">
           <span>VS</span>
+          <div class="attribute-actions arena-attributes" aria-label="Escolha o atributo">
+            <button data-attribute="ataque">Poder</button>
+            <button data-attribute="defesa">Inteligencia</button>
+            <button data-attribute="velocidade">Carisma</button>
+            <button data-attribute="especial" class="special-action">Especial</button>
+          </div>
+          <div id="round-result" class="round-result" aria-live="polite"></div>
+          <div id="match-finish" class="match-finish" aria-live="assertive"></div>
           <div id="damage-float" class="damage-float"></div>
+          <div id="impact-spark" class="impact-spark" aria-hidden="true"></div>
         </div>
         <div class="fighter-zone">
           <h3 id="opponent-title">CPU</h3>
@@ -77,12 +90,6 @@
 
       <section class="actions-panel">
         <p id="battle-message">Selecione uma carta para comecar a rodada.</p>
-        <div class="attribute-actions">
-          <button data-attribute="ataque">Poder</button>
-          <button data-attribute="defesa">Inteligencia</button>
-          <button data-attribute="velocidade">Carisma</button>
-          <button data-attribute="especial" class="special-action">Especial</button>
-        </div>
         <div class="round-buttons">
           <button id="next-round" disabled>Proxima rodada</button>
           <button id="restart-match">Reiniciar</button>
@@ -91,6 +98,9 @@
     </section>
 
     <section id="screen-final" class="screen final-screen">
+      <div class="confetti" aria-hidden="true">
+        <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+      </div>
       <p class="eyebrow">Resultado final</p>
       <h2 id="final-title">Vitoria</h2>
       <p id="final-message"></p>
