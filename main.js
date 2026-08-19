@@ -35,7 +35,8 @@ const elements = {
   roundResult: document.querySelector("#round-result"),
   matchFinish: document.querySelector("#match-finish"),
   tieBreakNotice: document.querySelector("#tie-break-notice"),
-  impactSpark: document.querySelector("#impact-spark")
+  impactSpark: document.querySelector("#impact-spark"),
+  soundToggle: document.querySelector("#sound-toggle")
 };
 
 const state = {
@@ -53,7 +54,8 @@ const state = {
   currentPicker: "p1",
   pendingGateAction: null,
   roundResolved: false,
-  deckNoticeTimer: null
+  deckNoticeTimer: null,
+  damageSoundRound: null
 };
 
 const attributeLabels = {
@@ -63,21 +65,37 @@ const attributeLabels = {
   especial: "Especial"
 };
 
+const audio = createAudioDirector();
+
 init();
 
 async function init() {
   bindEvents();
+  audio.startAmbient();
   await loadCards();
   renderDecks();
 }
 
 function bindEvents() {
+  document.addEventListener("pointerdown", () => audio.startAmbient(), { once: true });
+
   document.querySelectorAll("[data-mode]").forEach((button) => {
     button.addEventListener("click", () => chooseMode(button.dataset.mode));
   });
 
   document.querySelector("#back-to-start").addEventListener("click", () => {
     showScreen("start");
+  });
+
+  elements.soundToggle.addEventListener("click", () => {
+    const muted = audio.toggleMute();
+    elements.soundToggle.setAttribute("aria-pressed", String(muted));
+    elements.soundToggle.textContent = muted ? "Som: desligado" : "Som: ligado";
+  });
+
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest("button");
+    if (button && !button.disabled && button !== elements.soundToggle) audio.effect("click");
   });
 
   elements.revealPicker.addEventListener("click", () => {
@@ -104,7 +122,7 @@ async function loadCards() {
   try {
     const response = await fetch('/cards.json');
     state.cards = await response.json();
-    state.cards = state.cards.map(applyBalancedStats);
+    state.cards = state.cards.map((card) => applyBalancedStats({ ...card, nome: portugueseNames[card.id] || card.nome }));
   } catch (error) {
     console.error("Nao foi possivel carregar cards.json. Rode com npm start.", error);
     state.cards = [];
@@ -114,6 +132,8 @@ async function loadCards() {
 }
 
 function chooseMode(mode) {
+  audio.startAmbient();
+  audio.announceDeckChoice();
   state.mode = mode;
 
   resetMatchData();
@@ -141,6 +161,7 @@ function selectDeck(faction) {
     state.localStep = "p2Deck";
     elements.deckGrid.classList.add("is-waiting");
     updateDeckInstruction("Jogador 2, escolha seu deck.", 360);
+    window.setTimeout(() => audio.announceDeckChoice(), 360);
     window.setTimeout(() => elements.deckGrid.classList.remove("is-waiting"), 360);
     return;
   }
@@ -169,6 +190,8 @@ function showBattleScreen() {
 }
 
 function startLocalPicking() {
+  audio.announceRound(state.round);
+  state.damageSoundRound = null;
   state.selected = { p1: null, p2: null };
   state.roundResolved = false;
   elements.fighterP1.className = "fighter-slot empty";
@@ -361,6 +384,9 @@ function resolveWinner(cardA, cardB, attribute) {
     if (effectA.type === "disarm") valueB -= 6;
     if (effectB.type === "disarm") valueA -= 6;
   }
+  if (cardA.id === cardB.id) {
+    return { winner: "draw", valueA, valueB, tieBreak: false, damage: 0, sameCard: true };
+  }
   // Empates no atributo sao decididos pelo legado total da carta, evitando
   // rodadas inconclusivas e garantindo que a batalha sempre tenha vencedor.
   const tieBreak = valueA === valueB;
@@ -403,15 +429,19 @@ function applyRoundResult(result) {
   document.querySelector(".arena-attributes").classList.add("is-hidden");
   elements.nextRound.disabled = false;
 
-  const winnerText = result.winner === "draw" ? "EMPATE" : `${state.decks[result.winner].toUpperCase()} VENCEU`;
+  const winnerText = result.winner === "draw" ? "EMPATE" : `${winnerDisplayName(state.decks[result.winner])} WINS!`;
   const damage = result.damage ?? Math.max(1, Math.abs(result.valueA - result.valueB));
   elements.roundResult.className = `round-result show${result.attribute === "especial" ? " special-result" : ""}`;
   elements.roundResult.innerHTML = `<strong>${winnerText}</strong><span>${attributeLabels[result.attribute]} · ${result.valueA} × ${result.valueB}${result.tieBreak ? " · desempate por legado" : ""}</span><em>${damage} de dano</em>`;
-  setMessage(result.tieBreak ? "Empate no atributo decidido pelo legado historico das cartas." : "Resultado exibido entre as cartas.");
+  setMessage(result.winner === "draw" ? "As duas pessoas escolheram a mesma carta: a rodada terminou empatada." : result.tieBreak ? "Empate no atributo decidido pelo legado historico das cartas." : "Resultado exibido entre as cartas.");
 
   if (result.matchOver) {
     elements.nextRound.textContent = "Ver resultado";
-    window.setTimeout(() => showMatchFinish(), 700);
+    elements.nextRound.disabled = true;
+    window.setTimeout(() => {
+      showMatchFinish();
+      window.setTimeout(() => { elements.nextRound.disabled = false; }, 1800);
+    }, 700);
   } else if (state.round >= 3 && state.score.p1 === state.score.p2) {
     elements.nextRound.textContent = "Rodada de desempate";
   } else {
@@ -424,7 +454,8 @@ function showMatchFinish() {
   const deck = winner === "p1" ? state.decks.p1 : state.decks.p2;
   const isCpuWin = state.mode === "cpu" && winner === "p2";
   elements.matchFinish.className = `match-finish show${isCpuWin ? " game-over" : ""}`;
-  elements.matchFinish.textContent = winner === "draw" ? "EMPATE FINAL" : isCpuWin ? "GAME OVER" : `K.O. — ${deck.toUpperCase()} WIN`;
+  elements.matchFinish.textContent = winner === "draw" ? "EMPATE FINAL" : `K.O. — ${winnerDisplayName(deck)} WINS!`;
+  if (winner !== "draw") audio.announceKO(deck);
 }
 
 function animateAttack(result) {
@@ -433,7 +464,6 @@ function animateAttack(result) {
     elements.damageFloat.classList.remove("show", "special-hit");
     void elements.damageFloat.offsetWidth;
     elements.damageFloat.classList.add("show");
-    playSound("hit");
     return;
   }
   const winnerSlot = result.winner === "p2" ? elements.fighterP2 : elements.fighterP1;
@@ -451,7 +481,12 @@ function animateAttack(result) {
   void elements.damageFloat.offsetWidth;
   elements.damageFloat.classList.add("show");
   if (result.attribute === "especial") elements.damageFloat.classList.add("special-hit");
-  playSound(result.attribute === "especial" ? "special" : "hit");
+  if (result.attribute === "especial") {
+    playSound("special");
+  } else if (state.damageSoundRound !== state.round) {
+    state.damageSoundRound = state.round;
+    playSound("hit");
+  }
 }
 
 function nextRound() {
@@ -470,11 +505,11 @@ function showFinal() {
   const winner = state.score.p1 > state.score.p2 ? "p1" : state.score.p2 > state.score.p1 ? "p2" : "draw";
   const winnerDeck = winner === "p1" ? state.decks.p1 : winner === "p2" ? state.decks.p2 : "Empate";
   setVictoryBackground(winnerDeck);
+  if (winner !== "draw") audio.playVictoryTheme(winnerDeck);
   screens.final.classList.toggle("has-victory", winner !== "draw");
-  const cpuDefeat = state.mode === "cpu" && winner === "p2";
-  elements.finalTitle.textContent = winner === "draw" ? "EMPATE" : cpuDefeat ? "GAME OVER" : `${winnerDeck.toUpperCase()} WIN`;
+  elements.finalTitle.textContent = winner === "draw" ? "EMPATE" : `${winnerDisplayName(winnerDeck)} WINS!`;
   const tieBreakText = state.history.some((item) => item.round > 3) ? " A batalha teve rodada de desempate." : "";
-  elements.finalMessage.textContent = winner === "draw" ? `Placar final: ${state.score.p1} x ${state.score.p2}.${tieBreakText}` : cpuDefeat ? `A CPU venceu com o deck ${winnerDeck}.${tieBreakText}` : `${winnerDeck} venceu a batalha por ${state.score.p1} x ${state.score.p2}.${tieBreakText}`;
+  elements.finalMessage.textContent = winner === "draw" ? `Placar final: ${state.score.p1} x ${state.score.p2}.${tieBreakText}` : `${winnerDisplayName(winnerDeck)} venceu a batalha por ${state.score.p1} x ${state.score.p2}.${tieBreakText}`;
   elements.roundHistory.innerHTML = state.history.map((item) => {
     const name = item.winner === "draw" ? "Empate" : state.decks[item.winner];
     return `<div>Rodada ${item.round}: ${name} em ${attributeLabels[item.attribute]} (${item.valueA} x ${item.valueB})</div>`;
@@ -499,6 +534,7 @@ function setVictoryBackground(deck) {
 function restartMatch() {
   resetMatchData();
   screens.final.classList.remove("has-victory");
+  audio.startAmbient();
   showScreen("start");
 }
 
@@ -514,6 +550,7 @@ function resetMatchData() {
   state.currentPicker = "p1";
   state.pendingGateAction = null;
   state.roundResolved = false;
+  state.damageSoundRound = null;
   elements.nextRound.textContent = "Proxima rodada";
   updateScore();
   updateRoundTitle();
@@ -561,6 +598,22 @@ function updateDeckInstruction(text, delay = 0) {
 function showScreen(name) {
   Object.values(screens).forEach((screen) => screen.classList.remove("is-active"));
   screens[name].classList.add("is-active");
+  elements.soundToggle.hidden = name === "final";
+  audio.setScreenMix(name);
+}
+
+function winnerDisplayName(deck) {
+  const names = {
+    Alemanha: "GERMANY",
+    Brasil: "BRAZIL",
+    China: "CHINA",
+    EUA: "USA",
+    Franca: "FRANCE",
+    Grecia: "GREECE",
+    Inglaterra: "ENGLAND",
+    Italia: "ITALY"
+  };
+  return names[deck] || String(deck || "").toUpperCase();
 }
 
 function getDeck(faction) {
@@ -661,6 +714,12 @@ function specialEffect(card) {
   const effect = specialEffects[card.id] || { attribute: strongestAttribute(card), bonus: 8, damage: 2, description: "Canaliza sua principal habilidade." };
   return { ...effect, bonus: Math.min(effect.bonus, 11), damage: Math.min(effect.damage, 5), type: specialTypes[card.id] || "assault" };
 }
+
+const portugueseNames = {
+  "napoleao-bonaparte": "Napoleão Bonaparte", "joan-of-arc": "Joana d'Arc", "rene-descartes": "René Descartes", "marie-curie": "Marie Curie",
+  "alexander-the-great": "Alexandre, o Grande", "socrates": "Sócrates", "plato": "Platão", "aristotle": "Aristóteles", "leonidas-i": "Leônidas I",
+  "elizabeth-i": "Isabel I", "michelangelo": "Michelangelo", "machiavelli": "Maquiavel", "galileo-galilei": "Galileu Galilei"
+};
 
 const balancedStats = {
   "napoleao-bonaparte": { hp: 85, ataque: 88, defesa: 83, velocidade: 70 },
@@ -831,20 +890,188 @@ const characterData = {
 };
 
 function playSound(type) {
-  const AudioContext = window.AudioContext || window.webkitAudioContext;
-  if (!AudioContext) return;
+  audio.effect(type);
+}
 
-  const context = new AudioContext();
-  const oscillator = context.createOscillator();
-  const gain = context.createGain();
-  const frequencies = { select: 420, hit: 160, special: 760 };
+function createAudioDirector() {
+  const tracks = {
+    ambient: new Audio("/sounds/war-pigs.mpeg"),
+    round1: new Audio("/sounds/round-one-fight.mpeg"),
+    round2: new Audio("/sounds/round-two-fight.mpeg"),
+    round3: new Audio("/sounds/round-three-fight.mpeg"),
+    deckChoice: new Audio("/sounds/select-your-destiny.mpeg"),
+    hit: new Audio("/sounds/combat-hit.mpeg"),
+    special: new Audio("/sounds/special-attack.mpeg")
+  };
+  const anthems = {
+    Brasil: "/sounds/anthem-brazil.mpeg",
+    Alemanha: "/sounds/anthem-germany.mpeg",
+    Grecia: "/sounds/anthem-greece.mpeg",
+    EUA: "/sounds/anthem-usa.mpeg",
+    China: "/sounds/anthem-china.mp4?v=4",
+    Franca: "/sounds/anthem-france.mp4?v=4",
+    Inglaterra: "/sounds/anthem-england.mpeg",
+    Italia: "/sounds/anthem-italy.mpeg"
+  };
+  const anthemTracks = Object.fromEntries(
+    Object.entries(anthems).map(([deck, source]) => [deck, new Audio(source)])
+  );
+  const koByDeck = {
+    Alemanha: "/sounds/ko-germany.mpeg",
+    Brasil: "/sounds/ko-brazil.mpeg",
+    China: "/sounds/ko-china.mpeg?v=2",
+    EUA: "/sounds/ko-usa.mpeg",
+    Franca: "/sounds/ko-france.mpeg?v=2",
+    Grecia: "/sounds/ko-greece.mpeg",
+    Inglaterra: "/sounds/ko-england.mpeg",
+    Italia: "/sounds/ko-italy.mpeg"
+  };
+  const koTracks = Object.fromEntries(
+    Object.entries(koByDeck).map(([deck, source]) => [deck, new Audio(source)])
+  );
+  let anthem;
+  let anthemReplayTimer;
+  let muted = false;
+  const activeEffects = new Set();
 
-  oscillator.frequency.value = frequencies[type] || 300;
-  oscillator.type = type === "special" ? "sawtooth" : "square";
-  gain.gain.setValueAtTime(0.035, context.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.18);
-  oscillator.connect(gain);
-  gain.connect(context.destination);
-  oscillator.start();
-  oscillator.stop(context.currentTime + 0.18);
+  tracks.ambient.loop = true;
+  tracks.ambient.volume = .18;
+  tracks.round1.volume = .44;
+  tracks.round2.volume = .44;
+  tracks.round3.volume = .44;
+  tracks.deckChoice.volume = .48;
+  tracks.hit.volume = .48;
+  tracks.special.volume = .62;
+
+  Object.values(tracks).forEach((track) => { track.preload = "auto"; });
+  Object.values(anthemTracks).forEach((track) => { track.preload = "auto"; });
+  Object.values(koTracks).forEach((track) => {
+    track.preload = "auto";
+    track.volume = .52;
+  });
+
+  const play = (track, restart = true) => {
+    if (muted || !track) return;
+    if (restart) track.currentTime = 0;
+    track.play().catch(() => {});
+  };
+
+  const playEffect = (track, durationMs = 0, startSeconds = 0) => {
+    if (muted || !track) return;
+    const effect = track.cloneNode();
+    effect.volume = track.volume;
+    effect.preload = "auto";
+    if (startSeconds) effect.currentTime = startSeconds;
+    activeEffects.add(effect);
+    const finish = () => {
+      effect.pause();
+      effect.currentTime = 0;
+      activeEffects.delete(effect);
+    };
+    effect.addEventListener("ended", () => activeEffects.delete(effect), { once: true });
+    effect.play().catch(() => activeEffects.delete(effect));
+    if (durationMs) window.setTimeout(finish, durationMs);
+  };
+
+  const stop = (track) => {
+    if (!track) return;
+    track.pause();
+    track.currentTime = 0;
+  };
+
+  const stopAnthem = () => {
+    window.clearTimeout(anthemReplayTimer);
+    anthemReplayTimer = null;
+    stop(anthem);
+  };
+
+  const stopEffects = () => {
+    activeEffects.forEach(stop);
+    activeEffects.clear();
+  };
+
+  const playCoinClick = () => {
+    if (muted) return;
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+    const context = new AudioContext();
+    const gain = context.createGain();
+    gain.gain.setValueAtTime(.028, context.currentTime);
+    gain.gain.exponentialRampToValueAtTime(.001, context.currentTime + .11);
+    gain.connect(context.destination);
+
+    [988, 1319].forEach((frequency, index) => {
+      const oscillator = context.createOscillator();
+      oscillator.type = "square";
+      oscillator.frequency.setValueAtTime(frequency, context.currentTime + index * .035);
+      oscillator.connect(gain);
+      oscillator.start(context.currentTime + index * .035);
+      oscillator.stop(context.currentTime + .12);
+    });
+
+    window.setTimeout(() => context.close().catch(() => {}), 180);
+  };
+
+  return {
+    startAmbient() {
+      stopAnthem();
+      play(tracks.ambient, false);
+    },
+    effect(type) {
+      if (type === "click" || type === "select") {
+        playCoinClick();
+        return;
+      }
+      playEffect(tracks[type], type === "hit" ? 1500 : 0, type === "hit" ? 4.5 : 0);
+    },
+    announceRound(round) {
+      playEffect(round === 1 ? tracks.round1 : round === 2 ? tracks.round2 : tracks.round3);
+    },
+    announceDeckChoice() {
+      playEffect(tracks.deckChoice);
+    },
+    announceKO(deck) {
+      const ko = koTracks[deck];
+      if (muted || !ko) return;
+      ko.currentTime = 0;
+      ko.play().catch(() => {});
+    },
+    setScreenMix(screen) {
+      tracks.ambient.volume = screen === "battle" ? .15 : .18;
+    },
+    playVictoryTheme(deck) {
+      stop(tracks.ambient);
+      stopEffects();
+      stopAnthem();
+      anthem = anthemTracks[deck];
+      if (!anthem || muted) return;
+      anthem.volume = .24;
+      const segmentDuration = deck === "China" || deck === "Franca" ? 35000 : 0;
+      const playAnthemSegment = () => {
+        if (muted || !anthem) return;
+        window.clearTimeout(anthemReplayTimer);
+        anthem.currentTime = 0;
+        anthem.play().catch(() => {});
+        if (segmentDuration) anthemReplayTimer = window.setTimeout(playAnthemSegment, segmentDuration);
+      };
+      anthem.loop = !segmentDuration;
+      anthem.onended = segmentDuration ? playAnthemSegment : null;
+      playAnthemSegment();
+    },
+    toggleMute() {
+      muted = !muted;
+      if (muted) {
+        stop(tracks.ambient);
+        stopEffects();
+        stopAnthem();
+        Object.values(koTracks).forEach(stop);
+      } else if (screens.final.classList.contains("is-active")) {
+        const winner = state.score.p1 > state.score.p2 ? "p1" : state.score.p2 > state.score.p1 ? "p2" : "draw";
+        if (winner !== "draw") this.playVictoryTheme(state.decks[winner]);
+      } else {
+        this.startAmbient();
+      }
+      return muted;
+    }
+  };
 }

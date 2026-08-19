@@ -92,6 +92,37 @@ button {
   display: grid;
 }
 
+.sound-toggle {
+  position: fixed;
+  top: 18px;
+  left: 18px;
+  z-index: 5;
+  min-height: 38px;
+  padding: 8px 12px;
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(14, 2, 6, .8);
+  box-shadow: 0 0 18px rgba(255, 52, 52, .24);
+  font-size: .72rem;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.sound-toggle[aria-pressed="true"] {
+  color: #ffd1d1;
+  border-color: rgba(255, 88, 88, .75);
+}
+
+.deck-destiny {
+  margin: 2px 0 6px;
+  color: var(--gold);
+  font-size: .72rem;
+  font-weight: 900;
+  letter-spacing: .13em;
+}
+
 .hero-screen::before {
   content: "";
   position: fixed;
