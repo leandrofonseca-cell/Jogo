@@ -149,7 +149,7 @@ function renderDecks() {
     const cards = getDeck(faction);
     const button = document.createElement("button");
     button.className = "deck-card";
-    button.innerHTML = `<strong>${faction}</strong><span>${cards.length} cartas prontas</span>`;
+    button.innerHTML = `<strong>${winnerDisplayName(faction)}</strong><span>${cards.length} cartas prontas</span>`;
     button.addEventListener("click", () => selectDeck(faction));
     elements.deckGrid.appendChild(button);
   });
@@ -178,10 +178,10 @@ function selectDeck(faction) {
 
 function showBattleScreen() {
   elements.battleMode.textContent = state.mode === "cpu" ? "Modo CPU" : "Multiplayer local";
-  elements.fighterTitleP1.textContent = state.decks.p1;
-  elements.opponentTitle.textContent = state.decks.p2;
-  elements.scoreLabelP1.textContent = state.decks.p1;
-  elements.scoreLabelP2.textContent = state.decks.p2;
+  elements.fighterTitleP1.textContent = winnerDisplayName(state.decks.p1);
+  elements.opponentTitle.textContent = winnerDisplayName(state.decks.p2);
+  elements.scoreLabelP1.textContent = winnerDisplayName(state.decks.p1);
+  elements.scoreLabelP2.textContent = winnerDisplayName(state.decks.p2);
   updateScore();
   updateRoundTitle();
   elements.nextRound.disabled = true;
@@ -317,21 +317,25 @@ function createCard(card) {
   article.innerHTML = `
     <div class="card-inner">
       <div class="card-face card-front">
-        <img class="card-image" src="${card.imagem}" alt="${card.nome}" onerror="this.style.opacity=.25">
-        <div class="card-title-row">
-          <h3>${card.nome}</h3>
-          <span class="badge">${card.raridade}</span>
+        <div class="card-visual">
+          <img class="card-image" src="${card.imagem}" alt="${card.nome}" onerror="this.style.opacity=.25">
+          <div class="card-title-row">
+            <h3>${card.nome}</h3>
+            <span class="badge">${card.raridade}</span>
+          </div>
+          <div class="card-attributes" aria-label="Atributos da carta">
+            <div class="card-meta">${winnerDisplayName(card.faccao)}</div>
+            <div class="hp-bar" title="HP ${card.hp}">
+              <div class="hp-fill" style="--hp: 100%"></div>
+            </div>
+            <div class="stats">
+              <div class="stat"><small>Pow</small><strong>${card.ataque}</strong></div>
+              <div class="stat"><small>Int</small><strong>${card.defesa}</strong></div>
+              <div class="stat"><small>Cha</small><strong>${card.velocidade}</strong></div>
+            </div>
+            <p class="special-name">${card.especial}</p>
+          </div>
         </div>
-        <div class="card-meta">${card.faccao}</div>
-        <div class="hp-bar" title="HP ${card.hp}">
-          <div class="hp-fill" style="--hp: 100%"></div>
-        </div>
-        <div class="stats">
-          <div class="stat"><small>Pow</small><strong>${card.ataque}</strong></div>
-          <div class="stat"><small>Int</small><strong>${card.defesa}</strong></div>
-          <div class="stat"><small>Cha</small><strong>${card.velocidade}</strong></div>
-        </div>
-        <p class="special-name">${card.especial}</p>
         <button class="flip-card-button" type="button" aria-label="Ver informacoes de ${card.nome}" title="Ver informacoes">+</button>
       </div>
       <div class="card-face card-back">
@@ -511,7 +515,7 @@ function showFinal() {
   const tieBreakText = state.history.some((item) => item.round > 3) ? " A batalha teve rodada de desempate." : "";
   elements.finalMessage.textContent = winner === "draw" ? `Placar final: ${state.score.p1} x ${state.score.p2}.${tieBreakText}` : `${winnerDisplayName(winnerDeck)} venceu a batalha por ${state.score.p1} x ${state.score.p2}.${tieBreakText}`;
   elements.roundHistory.innerHTML = state.history.map((item) => {
-    const name = item.winner === "draw" ? "Empate" : state.decks[item.winner];
+    const name = item.winner === "draw" ? "EMPATE" : winnerDisplayName(state.decks[item.winner]);
     return `<div>Rodada ${item.round}: ${name} em ${attributeLabels[item.attribute]} (${item.valueA} x ${item.valueB})</div>`;
   }).join("");
   showScreen("final");
@@ -908,8 +912,8 @@ function createAudioDirector() {
     Alemanha: "/sounds/anthem-germany.mpeg",
     Grecia: "/sounds/anthem-greece.mpeg",
     EUA: "/sounds/anthem-usa.mpeg",
-    China: "/sounds/anthem-china.mp4?v=4",
-    Franca: "/sounds/anthem-france.mp4?v=4",
+    China: "/sounds/anthem-china.mp3",
+    Franca: "/sounds/anthem-france.mp3",
     Inglaterra: "/sounds/anthem-england.mpeg",
     Italia: "/sounds/anthem-italy.mpeg"
   };
@@ -935,11 +939,11 @@ function createAudioDirector() {
   const activeEffects = new Set();
 
   tracks.ambient.loop = true;
-  tracks.ambient.volume = .18;
-  tracks.round1.volume = .44;
-  tracks.round2.volume = .44;
-  tracks.round3.volume = .44;
-  tracks.deckChoice.volume = .48;
+  tracks.ambient.volume = .07;
+  tracks.round1.volume = .58;
+  tracks.round2.volume = .58;
+  tracks.round3.volume = .58;
+  tracks.deckChoice.volume = .62;
   tracks.hit.volume = .48;
   tracks.special.volume = .62;
 
@@ -947,7 +951,7 @@ function createAudioDirector() {
   Object.values(anthemTracks).forEach((track) => { track.preload = "auto"; });
   Object.values(koTracks).forEach((track) => {
     track.preload = "auto";
-    track.volume = .52;
+    track.volume = .64;
   });
 
   const play = (track, restart = true) => {
@@ -1037,7 +1041,7 @@ function createAudioDirector() {
       ko.play().catch(() => {});
     },
     setScreenMix(screen) {
-      tracks.ambient.volume = screen === "battle" ? .15 : .18;
+      tracks.ambient.volume = screen === "battle" ? .055 : .07;
     },
     playVictoryTheme(deck) {
       stop(tracks.ambient);
@@ -1046,7 +1050,7 @@ function createAudioDirector() {
       anthem = anthemTracks[deck];
       if (!anthem || muted) return;
       anthem.volume = .24;
-      const segmentDuration = deck === "China" || deck === "Franca" ? 35000 : 0;
+      const segmentDuration = 0;
       const playAnthemSegment = () => {
         if (muted || !anthem) return;
         window.clearTimeout(anthemReplayTimer);
